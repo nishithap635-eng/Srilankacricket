@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Live Cricket Broadcast</title>
+    <style>
+        :root {
+            --ticker-bg: #ffcc00;
+            --badge-bg: #000000;
+        }
+
+        html, body { 
+            margin: 0; 
+            padding: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: #000; 
+            font-family: Arial, sans-serif; 
+            overflow: hidden; 
+            position: fixed;
+        }
+        
+        #video-container { 
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            width: 100%; height: 100%; 
+            background: #000; 
+            overflow: hidden; 
+        }
+        
+        #webcam-stream { 
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%; 
+            background-color: #000;
+            object-fit: cover;
+            z-index: 1;
+        }
+
+        /* Camera Start Overlay Button */
+        #start-overlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: #000;
+            z-index: 20000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .cricket-ticker {
+            position: absolute; 
+            bottom: 8px; 
+            left: 50%; 
+            transform: translateX(-50%);
+            width: 96%; 
+            max-width: 1200px; 
+            height: 42px;
+            background: var(--ticker-bg); 
+            color: #000;
+            display: flex; 
+            align-items: center; 
+            font-weight: bold; 
+            font-size: clamp(0.75rem, 1.1vw, 1rem);
+            border-radius: 5px; 
+            border: 2px solid #000; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.9);
+            z-index: 999; 
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        .team-box { 
+            background: var(--badge-bg); 
+            color: #fff; 
+            height: 100%;
+            padding: 0 10px; 
+            display: flex; 
+            align-items: center;
+            gap: 6px; 
+            font-size: 1rem; 
+            white-space: nowrap;
+        }
+
+        .match-info { 
+            display: flex; 
+            flex-grow: 1; 
+            padding: 0 8px; 
+            justify-content: space-around; 
+            align-items: center; 
+            gap: 6px;
+            text-transform: uppercase; 
+            overflow: hidden;
+        }
+
+        .player-item {
+            white-space: nowrap;
+            background: rgba(0, 0, 0, 0.1);
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        .overlay {
+            position: absolute; 
+            top: 0; left: 0; 
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.95); 
+            color: white; 
+            display: flex;
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            z-index: 9999;
+        }
+        
+        .hidden { display: none !important; }
+        .scorecard-table { width: 85%; max-width: 800px; border-collapse: collapse; margin-top: 15px; }
+        .scorecard-table th, .scorecard-table td { border: 1px solid #555; padding: 10px; text-align: center; font-size: 1.1rem; }
+        .scorecard-table th { background: #f59e0b; color: #000; }
+    </style>
+</head>
+<body>
+    <div id="video-container">
+        <!-- Start Camera Prompt Screen -->
+        <div id="start-overlay">
+            <h2 style="color: #f59e0b; margin: 0; text-align: center;">Live Cricket Broadcast</h2>
+            <p style="color: #ccc; font-size: 0.95rem; text-align: center; margin: 0;">කැමරාව ක්‍රියාත්මක කිරීමට පහත බොත්තම ඔබන්න</p>
+            <button id="start-cam-btn" style="background: #22c55e; color: #fff; border: none; padding: 14px 28px; font-size: 1.1rem; font-weight: bold; border-radius: 8px; cursor: pointer;">කැමරාව Start කරන්න</button>
+        </div>
+
+        <!-- Phone Camera Stream -->
+        <video id="webcam-stream" autoplay playsinline muted></video>
+
+        <!-- Cricket Ticker Bar -->
+        <div class="cricket-ticker">
+            <div class="team-box">
+                <span id="display-team">SL</span>
+                <span id="display-score">0-0</span>
+                <span id="display-overs">0.0</span>
+            </div>
+            <div class="match-info">
+                <span id="display-striker" class="player-item">-</span>
+                <span id="display-nonstriker" class="player-item">-</span>
+                <span id="display-bowler" class="player-item">-</span>
+                <span id="display-target" class="player-item" style="color: #990000;"></span>
+            </div>
+        </div>
+
+        <!-- Full Screen Scoreboard -->
+        <div id="fullScorecard" class="overlay hidden">
+            <h1 id="cardTeamName" style="color: #f59e0b; margin-bottom: 5px;">MATCH SCOREBOARD</h1>
+            <h2 id="cardTeamScore">SCORE: 0-0 (0.0 Ov)</h2>
+            <h3 id="cardTarget" style="color: #06b6d4;"></h3>
+
+            <table class="scorecard-table">
+                <thead>
+                    <tr>
+                        <th>ක්‍රීඩකයා / විස්තරය</th>
+                        <th>තත්ත්වය</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Striker Batter (*)</td>
+                        <td id="cardStriker">-</td>
+                    </tr>
+                    <tr>
+                        <td>Non-Striker Batter</td>
+                        <td id="cardNonStriker">-</td>
+                    </tr>
+                    <tr>
+                        <td>Current Bowler</td>
+                        <td id="cardBowler">-</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        const firebaseConfig = {
+          apiKey: "AIzaSyBkvqAuBsWVupGPH7Rh0LnQADPbM0qPDPI",
+          authDomain: "broadcast-6509b.firebaseapp.com",
+          projectId: "broadcast-6509b",
+          storageBucket: "broadcast-6509b.firebasestorage.app",
+          messagingSenderId: "833927917460",
+          appId: "1:833927917460:web:9ad1f7e9b48379c4bfe981"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // Click event to start camera
+        document.getElementById('start-cam-btn').addEventListener('click', () => {
+            navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: { ideal: 'environment' } }, 
+                audio: false 
+            })
+            .then(stream => {
+                const videoElement = document.getElementById('webcam-stream');
+                videoElement.srcObject = stream;
+                videoElement.play();
+                document.getElementById('start-overlay').style.display = 'none';
+            })
+            .catch(err => {
+                // Fallback to front camera if back camera fails
+                navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+                .then(stream => {
+                    const videoElement = document.getElementById('webcam-stream');
+                    videoElement.srcObject = stream;
+                    videoElement.play();
+                    document.getElementById('start-overlay').style.display = 'none';
+                })
+                .catch(e => {
+                    alert("Aiki bai samu ba: " + e.message);
+                });
+            });
+        });
+
+        onValue(ref(db, 'matchState'), (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                document.documentElement.style.setProperty('--ticker-bg', data.tickerBg || '#ffcc00');
+                document.documentElement.style.setProperty('--badge-bg', data.teamBg || '#000000');
+
+                document.getElementById('display-team').innerText = data.teamName || 'SL';
+                document.getElementById('display-score').innerText = data.teamScore || '0-0';
+                document.getElementById('display-overs').innerText = data.matchOvers || '0.0';
+                
+                document.getElementById('display-striker').innerText = data.striker ? `BAT: ${data.striker}` : 'BAT: -';
+                document.getElementById('display-nonstriker').innerText = data.nonStriker ? `BAT: ${data.nonStriker}` : 'BAT: -';
+                document.getElementById('display-bowler').innerText = data.bowler ? `BOWL: ${data.bowler}` : 'BOWL: -';
+                document.getElementById('display-target').innerText = data.target ? `TGT: ${data.target}` : '';
+
+                let videoEl = document.getElementById('webcam-stream');
+                let rotation = data.rotation || "0";
+                let fitMode = data.fitMode || "cover";
+
+                videoEl.style.objectFit = fitMode;
+                
+                if (rotation === "90" || rotation === "270") {
+                    videoEl.style.transform = `rotate(${rotation}deg) scale(${fitMode === 'cover' ? '1.7' : '0.6'})`;
+                } else if (rotation === "180") {
+                    videoEl.style.transform = `rotate(180deg)`;
+                } else {
+                    videoEl.style.transform = `rotate(0deg)`;
+                }
+
+                const card = document.getElementById('fullScorecard');
+                if(data.showFullScorecard) {
+                    card.classList.remove('hidden');
+                    document.getElementById('cardTeamName').innerText = `${data.teamName} INNINGS SCOREBOARD`;
+                    document.getElementById('cardTeamScore').innerText = `TOTAL: ${data.teamScore} (${data.matchOvers} Overs)`;
+                    document.getElementById('cardTarget').innerText = data.target ? `Target: ${data.target}` : '';
+                    
+                    document.getElementById('cardStriker').innerText = data.striker || '-';
+                    document.getElementById('cardNonStriker').innerText = data.nonStriker || '-';
+                    document.getElementById('cardBowler').innerText = data.bowler || '-';
+                } else {
+                    card.classList.add('hidden');
+                }
+            }
+        });
+    </script>
+</body>
+</html>
